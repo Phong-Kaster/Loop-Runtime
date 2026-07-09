@@ -1,0 +1,10 @@
+# Engine-vendor coupling is confined to a runtime adapter boundary
+
+The loop must not be married to Claude Code. All durable architecture — the `.ai/` and `knowledge/` artifacts, the status contract, the escalation protocol, git checkpoints, `ENGINE.md` as a Markdown system prompt — is plain files and git, consumable by any sufficiently capable AI CLI. Everything vendor-specific is deliberately confined to one adapter surface inside `run.ps1`: headless invocation (`claude -p`), system-prompt injection (`--append-system-prompt`), permission compilation (Claude settings allow/deny format), and event-stream parsing (`stream-json`). Porting to another engine (Codex `exec`, Gemini CLI `-p`) means writing a new adapter for that surface — roughly a day of work — not redesigning the architecture. V2 direction: an `-Engine` parameter in the runtime selecting an adapter.
+
+## Consequences
+
+- Decisions like "status transport is an implementation detail" (Q6) and "a checkpoint is a loop concept, git is a persistence backend" (ADR-003) are what keep this boundary thin; preserve them when evolving the runtime.
+- **Known leak:** Capability Ledger entries store engine-specific permission rule strings (e.g. `Bash(./gradlew.bat assembleDebug*)` in Claude Code syntax). A multi-engine setup needs either per-engine rule strings per ledger entry or a mechanical per-adapter translator — the translator must stay verbatim-faithful to what the human approved (ADR-004's non-interpretation rule).
+- **Known gap:** Fresh-Context Review (ADR-005) uses Claude Code's native clean-context subagents. Engines without subagents must emulate it with a second headless CLI invocation; `ENGINE.md`'s review instruction becomes adapter-dependent.
+- Loop reliability is model-dependent regardless of adapter: the engine must *obey* ENGINE.md (one iteration, honest status, no permission workarounds). A weaker model degrades the loop even with a perfect adapter.
