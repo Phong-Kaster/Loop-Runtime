@@ -2,6 +2,11 @@
 
 How to install, run, and govern the Loop Runtime as the human in the loop. Design rationale lives in [architecture.md](./architecture.md); this is the operating manual.
 
+There are two ways to operate the loop — pick one per repository, both talk to the same engine underneath:
+
+- **Skill path (recommended)** — the `/loop-runtime` Claude Code skill installs, stages, launches, supervises, and summarizes for you. This is the path most people want; skip to [§1a](#1a-install-the-skill-recommended).
+- **Manual path** — copy `.loop/` yourself and run `run.ps1` from a terminal. Useful outside Claude Code, for scripted/CI-style invocation, or if you want direct control over every parameter. See [§1b](#1b-install-manually).
+
 ---
 
 ## Prerequisites
@@ -9,16 +14,41 @@ How to install, run, and govern the Loop Runtime as the human in the loop. Desig
 - A git repository (clean working tree recommended before starting a run)
 - Claude Code CLI installed and authenticated
 - Windows PowerShell (V1 ships `run.ps1`; the contract is shell-agnostic)
+- Skill path only: Node.js available (for `npx`)
 
-## 1. Install
+## 1a. Install the skill (recommended)
 
-Copy the `.loop/` directory into your repository root. That is the entire installation — never edit its contents per-project (project-specific truth belongs in `knowledge/`, which the loop maintains itself).
+```
+npx skills@latest add Phong-Kaster/Loop-Runtime
+```
 
-## 2. Write the PRD
+Installs `loop-runtime` into `.claude/skills/loop-runtime/` and `.agents/skills/loop-runtime/` in the current repo. Nothing else to copy — the skill carries its own copy of `ENGINE.md`, `POLICIES.md`, the capability baseline, the templates, and `run.ps1`, and materializes `.loop/` at your repo root itself the first time you invoke it.
 
-Create `PRD.md` at the repository root: business objective, requirements, constraints. Write it for a competent engineer who cannot ask you questions in real time — ambiguity you leave here either becomes a recorded assumption or an escalation that stops the loop.
+## 1b. Install manually
+
+Copy the `.loop/` directory into your repository root by hand. That is the entire installation — never edit its contents per-project (project-specific truth belongs in `knowledge/`, which the loop maintains itself). Use this path if you're not working inside Claude Code, or want to invoke `run.ps1` from a script/CI job instead of a conversation.
+
+---
+
+## 2. Provide the requirement
+
+**Skill path:** type one of:
+
+```
+/loop-runtime <inline requirement text>
+/loop-runtime <path to a requirement document>
+/loop-runtime
+```
+
+Inline text is written verbatim into `PRD.md` — no rewriting, no summarizing. A path to an existing file gets staged as the PRD source instead (via `run.ps1 -PrdPath`). No argument resumes whatever `PRD.md` already exists, or asks you for one if there isn't one yet.
+
+**Manual path:** create `PRD.md` at the repository root yourself — business objective, requirements, constraints. Write it for a competent engineer who cannot ask you questions in real time — ambiguity you leave here either becomes a recorded assumption or an escalation that stops the loop.
 
 ## 3. Start the runtime
+
+**Skill path:** the skill starts it for you — `.loop/run.ps1` is launched in the background and its log is streamed live into the conversation via a Monitor, the same way you'd see output from any other command. Nothing to run by hand; nothing ties up your terminal, and there's no foreground-command timeout to worry about on a long run.
+
+**Manual path:**
 
 ```powershell
 powershell -File .loop/run.ps1
@@ -30,13 +60,16 @@ Useful parameters:
 |---|---|---|
 | `-MaxIterations` | 50 | Iteration budget per run — deterministic safety stop, not a judgment |
 | `-MaxConsecutiveCrashes` | 3 | Watchdog bound for invocations that die without reporting |
+| `-PrdPath` | (empty) | Stage an external file as `PRD.md` before the first iteration — relative or absolute path |
 | `-Model` | (CLI default) | Model override for engine invocations |
 | `-QuietEngine` | off | Suppress the live engine activity feed |
 | `-DangerouslySkipPermissions` | off | Full permission bypass — only for sandboxed/VM environments |
 
 ### Watching the loop (is it running?)
 
-The terminal that launches `run.ps1` owns the live view: a timestamped activity feed with a per-iteration stopwatch, one line per engine action —
+**Skill path:** the conversation itself is the live view — every line `run.ps1` writes (iteration headers, engine tool-use, engine text, `Status:` lines) streams in as it happens. Ask at any time and you'll get a summary of where the run currently stands.
+
+**Manual path:** the terminal that launches `run.ps1` owns the live view: a timestamped activity feed with a per-iteration stopwatch, one line per engine action —
 
 ```
 === Iteration 2 / 50 === started 20:35:30 | total elapsed 00:04:44
@@ -67,42 +100,52 @@ Get-Process claude -ErrorAction SilentlyContinue | Sort-Object StartTime | Selec
 git log --oneline loop/<prd-slug>
 ```
 
-Only one runtime may run per repository — a second `run.ps1` refuses to start while another holds the run lock (`$env:TEMP\loop-run-<repo-name>.lock`; stale locks from dead processes are taken over automatically).
+Only one runtime may run per repository — a second `run.ps1` refuses to start while another holds the run lock (`$env:TEMP\loop-run-<repo-name>.lock`; stale locks from dead processes are taken over automatically). This holds regardless of which path launched it.
 
 The first invocation finds no `.ai/` and therefore bootstraps: it reads your PRD, inspects the repository (including `CLAUDE.md` and READMEs — it never edits them), generates `knowledge/` and `.ai/`, creates the `loop/<prd-slug>` branch, and stops with `ESCALATE`.
 
 ## 4. The one mandatory gate: approve the Definition of Done
 
-Open `.ai/DoD.md` and `.ai/ESCALATION.md`. The DoD is the exam the whole run will be graded against — this is your highest-leverage five minutes:
+**Skill path:** the skill reads `.ai/ESCALATION.md` and asks you directly in conversation — the DoD, the proposed capabilities, and any ambiguity the engine flagged, presented as a normal question with the engine's own considered options as choices. Answer it like any other question; the skill writes your decision (and rationale) into `.ai/ESCALATION.md`'s `## Decision` section and any approved capability into the right ledger file, then resumes automatically. You never open a file yourself.
+
+**Manual path:** open `.ai/DoD.md` and `.ai/ESCALATION.md`. The DoD is the exam the whole run will be graded against — this is your highest-leverage five minutes:
 
 1. Edit the criteria freely: tighten vague ones, delete wrong ones, add missing ones. Every criterion must be provable by evidence.
 2. Review the proposed standing capabilities (your repo's build/test/lint commands). Narrow anything too broad; paste approved entries into the named ledger file.
 3. Write your decision **and rationale** under `## Decision` in `.ai/ESCALATION.md`.
 4. Re-run `run.ps1`.
 
-After approval the DoD is immutable to the engine: it may propose changes, never apply them.
+After approval the DoD is immutable to the engine either way: it may propose changes, never apply them.
 
 ## 5. While the loop runs
 
 Nothing is required from you. The loop stops only for:
 
-- **`ESCALATE`** — a decision above the engine's authority: an architecture change (Tier 2), an intent gap (Tier 3), a capability request, missing product information. Read `.ai/ESCALATION.md`, write decision + rationale, re-run. One pending escalation at a time, always.
-- **`FAILED`** — execution itself is broken (environment, corruption, exhausted resources). Fix the environment, re-run; the engine resumes from the last checkpoint.
+- **`ESCALATE`** — a decision above the engine's authority: an architecture change (Tier 2), an intent gap (Tier 3), a capability request, missing product information. Skill path: answered as conversation, same as §4. Manual path: read `.ai/ESCALATION.md`, write decision + rationale, re-run. One pending escalation at a time, always.
+- **`FAILED`** — execution itself is broken (environment, corruption, exhausted resources). Fix the environment, re-run (or ask the skill to); the engine resumes from the last checkpoint.
 - **Watchdog / budget stops** — mechanical bounds tripped. Inspect, re-run to continue; the loop never loses verified work.
 
-Interrupting is always safe: kill it whenever you like. Every iteration ends at a Stable Checkpoint (one atomic commit of code + state); the next invocation recovers mechanically — even from a mid-iteration crash, which it detects as a dirty working tree.
+Interrupting is always safe: kill it whenever you like (or ask the skill to stop supervising). Every iteration ends at a Stable Checkpoint (one atomic commit of code + state); the next invocation recovers mechanically — even from a mid-iteration crash, which it detects as a dirty working tree.
 
 Watching progress: `git log --oneline` on the loop branch is the execution history; `.ai/STATE.md` is the engine's current memory; `.ai/AMENDMENTS.md` is the audited log of every plan mutation.
+
+**Capability grants can be goal-scoped, not just standing.** A denied-but-needed action (e.g. a destructive git operation the engine isn't authorized for, even late in a run) escalates the same way — the request can propose either a standing capability (`knowledge/capabilities.json`, survives future runs) or a one-time, goal-scoped one (`.ai/capabilities.json`, expires automatically when `.ai/` is removed at completion). Prefer goal-scoped whenever the need is specific to this one run.
 
 ## 6. Completion and merge
 
 `DONE` is only ever reported by a fresh verifier iteration that wrote none of the implementation and re-proved every DoD criterion. At that point the branch tip contains the implementation, updated `knowledge/`, and a **Cleanup Commit** whose message is the completion summary (criteria → evidence, notable amendments) — and no `.ai/` (execution state is the loop's memory, not your product; its full history remains in the branch's earlier commits).
 
-Review the branch like any contribution. **Merging is your act — the engine never merges, never pushes, never touches your default branch.**
+**Skill path:** you get a roll-up summary across **every** `loop/*` branch in the repo, not just the one that finished — each one's status (done / in-progress / stuck on an escalation / stale), what it contains, and whether it's merge-ready — plus any non-blocking review notes that would otherwise be lost when `.ai/` is deleted.
+
+**Manual path:** review the branch like any contribution yourself; check other `loop/*` branches with `git branch --list 'loop/*'` if you've run more than one goal in this repo.
+
+Either way: **merging is your act — the engine never merges, never pushes, never touches your default branch.**
 
 ## 7. The next feature
 
-Write a new `PRD.md`, run `run.ps1` again. `knowledge/` persists — verified commands and hard-won environmental lessons carry over; a new `.ai/` and a new loop branch are created for the run.
+**Skill path:** `/loop-runtime <next requirement>` — same repo, new goal. If a `PRD.md` already exists and differs from the new text, the skill confirms with you before overwriting rather than doing it silently.
+
+**Manual path:** write a new `PRD.md`, run `run.ps1` again. Either way, `knowledge/` persists — verified commands and hard-won environmental lessons carry over; a new `.ai/` and a new loop branch are created for the run.
 
 To abandon a run: delete `.ai/` and the loop branch. Nothing else to clean.
 
@@ -110,7 +153,7 @@ To abandon a run: delete `.ai/` and the loop branch. Nothing else to clean.
 
 ## What the engine may never do
 
-Enforced mechanically (runtime deny rules) or by hard-stop protocol:
+Enforced mechanically (runtime deny rules) or by hard-stop protocol — true regardless of which path launched it:
 
 - Modify `.loop/`, any capability ledger, or its own permission settings
 - Modify `PRD.md` or the approved `DoD.md`
@@ -119,7 +162,11 @@ Enforced mechanically (runtime deny rules) or by hard-stop protocol:
 - Declare `DONE` from the same invocation that implemented the final work
 - Proceed past an unanswered escalation
 
+The skill adds no authority of its own on top of this — it only stages input (PRD, capability ledger entries you already approved) and supervises/summarizes output. Every capability the engine ever exercises still traces back to a ledger entry you approved, standing or goal-scoped.
+
 ## Honest limitations
 
 - The capability system is a guardrail against accidents and drift — not containment for an adversarial process. For untrusted PRDs or maximum isolation, run the whole loop inside a VM/container (where `-DangerouslySkipPermissions` becomes reasonable).
 - V1 assumes git and PowerShell; both are persistence/transport details, not architecture.
+- Compound Bash commands (e.g. `cd <dir> && node ...`) can be denied even when the base command is capability-approved, since the approval matches on the literal command form. Expect the engine to self-correct by retrying with a simpler form — it costs a retry, not a failure.
+- Skill path only: the skill's own frontmatter must keep `disable-model-invocation: true`. Without it, a nested engine invocation running inside the same repo can see the skill and auto-trigger it on itself instead of following `ENGINE.md` directly — this was a real bug found during testing, now fixed, but worth knowing if you ever fork or repackage the skill.
