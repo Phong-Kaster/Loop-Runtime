@@ -33,7 +33,7 @@ This installs the `loop-runtime` skill into `.claude/skills/loop-runtime/` (and 
 
 ---
 
-## Use it
+## How to use it
 
 ```
 /loop-runtime <inline requirement text>
