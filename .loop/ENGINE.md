@@ -94,7 +94,7 @@ If `.ai/` does not exist, this invocation is the Bootstrap. Do not implement any
 5. Generate `.ai/` from `.loop/templates/`:
    - `DoD.md` — testable acceptance criteria derived from the PRD. This is the exam the whole run will be graded against; make every criterion verifiable by evidence.
    - `PLAN.md` — your execution strategy (machine-owned; the human will not review it).
-   - `TASKS/` — one file per task: description, dependencies, acceptance, status.
+   - `TASKS/` — one file per task; each task is a checkpoint of demonstrably working behavior, not an internal component (see `POLICIES.md` § Task Decomposition) — description, dependencies, acceptance, status.
    - `STATE.md` — initialized from the template.
    - `AMENDMENTS.md` — empty log.
 6. Propose standing Capabilities for this repository's toolchain (build/test/lint commands) as part of the Escalation Request below — exact permission rule strings, with intent, command, scope, lifetime.

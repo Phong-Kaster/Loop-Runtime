@@ -10,6 +10,28 @@
 - Maximum 3 attempts per task across all iterations (attempts are counted in the task file). The 3rd failure is a discovery that must reconcile to Escalation, not a 4th attempt.
 - A build/test failure caused by a fixable defect in your own new code is a fix, not a retry — fix it within the iteration.
 
+## Task Decomposition
+
+- Decompose by **incremental working behavior**, not by technical layer or file. Each task must leave
+  the feature demonstrably more complete and functioning at some observable level — not merely a
+  helper function, internal utility, or scaffold with nothing yet wired to it.
+- Rule of thumb: phrase the task's acceptance as "the user/system can now observe/do X." If a task
+  would only compile, or exist with no caller yet, it isn't a task-sized checkpoint — fold it into the
+  task that first makes it observable.
+- Example — a notification-on-launch feature:
+  - Wrong (layer-based): "write NotificationUtil.kt" / "write PermissionUtil.kt" / "wire into
+    MainApplication" / "add tests" / "update README" — nothing is independently demonstrable until
+    the wiring task lands; each of the first three pays full review/checkpoint overhead for no
+    observable behavior of its own.
+  - Right (checkpoint-based): "app can request notification permission on launch" (demonstrable: the
+    permission dialog appears) → "app can send a notification on demand" (demonstrable: calling it
+    posts a real notification) → "app sends the notification automatically on every cold start"
+    (demonstrable: the full PRD behavior, end-to-end).
+- This does not mean skipping helper functions or good structure — it means a task isn't complete
+  until its observable behavior is real, even if implementing it required several private helpers
+  along the way. Batch that internal work into the checkpoint task it serves rather than giving it a
+  separate task and separate review/checkpoint overhead for no independent behavior.
+
 ## Tier Classification Rules
 
 Classify a plan mutation as the **highest** tier that applies:
