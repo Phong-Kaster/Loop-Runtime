@@ -1,12 +1,16 @@
 # Loop Runtime
 
-The vocabulary of the Loop Runtime: a portable execution engine, copied into consumer repositories, that turns a feature PRD into verified working software with minimal human intervention during coding.
+The vocabulary of the Loop Runtime: a portable execution engine, installed into consumer repositories either as a Claude Code skill or by copying `.loop/` directly, that turns a feature PRD into verified working software with minimal human intervention during coding.
 
 ## Language
 
 **Runtime**:
 The thin, intentionally dumb outer script that compiles the Capability Ledger into permission settings, invokes Claude Code, reads the Execution Status, and decides whether to invoke again. It is the enforcement plane: purely mechanical, never judgmental. Contains no planning, reconciliation, or scheduling logic.
 _Avoid_: Harness, orchestrator, scheduler
+
+**Skill**:
+The `/loop-runtime` Claude Code skill — the recommended surface for installing and operating the loop. It carries its own copy of `.loop/`'s contents (spec, policies, templates, runtime script) and materializes them at the consumer repository root; stages the human's requirement (inline text or a document path) as `PRD.md`; launches and supervises `run.ps1` live instead of leaving it to a terminal; mediates every Escalation Request as ordinary conversation instead of a file the human must open and edit; and reports a Roll-up Summary at completion. It adds no authority of its own — every Capability it exercises still traces back to a ledger entry the human approved through the same Trust Chain.
+_Avoid_: Wrapper, launcher (undersells that it also supervises and summarizes), plugin (V1 ships as a skill, not a Claude Code plugin — see ADR notes on invocation namespacing)
 
 **Execution Engine**:
 The AI process (one Claude Code invocation) governed by ENGINE.md that performs all reasoning: task selection, implementation, verification, reconciliation.
@@ -99,6 +103,10 @@ _Avoid_: Done, complete (before fresh verification)
 The engine-maintained cache of verified operational truth about a consumer repository — build/test/lint commands, conventions, environmental quirks learned through execution. Lives in `knowledge/` at the consumer root; survives every feature run; human-editable without approval gates. It is a cache, never the source of truth: on conflict, the codebase wins and the engine corrects the cache.
 _Avoid_: Docs, memory, wiki
 
+**Roll-up Summary**:
+The Skill's end-of-run report, produced when a run reaches `DONE`: every Loop Branch in the repository — not only the one that just finished — with its status (done / in-progress / stuck on an unanswered escalation / stale), what it contains, and whether it is merge-ready. A repository can accumulate more than one Loop Branch across separate PRDs over time; the summary exists so the human always sees the full picture, not just the latest run.
+_Avoid_: Report, digest, changelog
+
 **Consumer repository**:
-Any repository that installs the loop by copying `.loop/` and providing a Goal. The Loop Runtime never knows the consumer's tech stack.
+Any repository that installs the loop — either via the Skill (`npx skills@latest add`, then `/loop-runtime`) or by copying `.loop/` directly — and provides a Goal. The Loop Runtime never knows the consumer's tech stack.
 _Avoid_: Host project, target repo

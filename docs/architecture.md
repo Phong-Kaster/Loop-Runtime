@@ -10,6 +10,13 @@ An application of Addy Osmani's **Loop Engineering** idea: instead of a human pr
 
 The Loop Runtime packages that idea as a **portable artifact**: one `.loop/` directory that can be copied into any repository — Android, Spring, React, Python, anything — and immediately becomes that repository's autonomous execution engine.
 
+Two surfaces install and operate that artifact. Both drive the exact same engine and contracts described in this document — neither changes the architecture, only how a human reaches it:
+
+- **The Skill** (recommended) — `npx skills@latest add <owner>/Loop-Runtime`, then `/loop-runtime <requirement>`. Carries its own copy of `.loop/`'s contents, materializes them at the consumer repo root, stages the requirement as `PRD.md`, launches and supervises `run.ps1` live in the conversation, mediates Escalation Requests as ordinary questions instead of file edits, and produces a Roll-up Summary across every Loop Branch at completion.
+- **Manual** — copy `.loop/` into the repository root by hand, write `PRD.md` yourself, run `powershell .loop/run.ps1` from a terminal.
+
+The Skill is additive: it stages input and supervises/summarizes output, but exercises no authority the Trust Chain (§9) didn't already grant through a human-approved Capability. Everything from §2 onward describes the engine and runtime both surfaces drive identically.
+
 The objective is not autonomous coding for its own sake. It is an execution system that is **safe, predictable, auditable, resumable, and human-governed**, where the human's involvement concentrates at the two points of highest leverage: defining intent before the code, and reviewing the deliverable after it.
 
 ---
@@ -124,6 +131,8 @@ At most **one pending escalation at a time** (V1): the engine hard-stops on Tier
 
 DoD approval is not a special mechanism — it is simply the first Escalation Request of every run. All policy changes cross the same boundary.
 
+**The Skill mediates this contract; it does not replace it.** When the Skill is the operating surface, it reads `.ai/ESCALATION.md` itself, presents the question (and the engine's own considered options) as ordinary conversation, and writes the human's decision — and rationale — into the same `## Decision` section a human editing the file by hand would have written. The artifact, the archival into `AMENDMENTS.md`, and the "at most one pending escalation" invariant are all unchanged; only the human-facing transport of the decision differs. A capability approval reached this way can still target either ledger — standing (`knowledge/capabilities.json`) or goal-scoped (`.ai/capabilities.json`) — exactly as a manual approval would.
+
 ---
 
 ## 7. Intent: PRD and the Definition of Done
@@ -219,5 +228,7 @@ Deliberately deferred until real usage demands them, with the trigger for each:
 | Parallel task execution / multiple pending escalations | Strictly sequential, single escalation | Sequential throughput becomes the bottleneck |
 | Non-git checkpoint persistence | Git assumed | A real non-git consumer appears |
 | Separate `GOAL.md` for very large PRDs | PRD + DoD suffice | PRDs too large to serve as working intent reference |
+| Capability rules that tolerate compound shell commands | Exact-prefix match on the literal command string (e.g. `Bash(node *)`) | Recurs often enough in practice that proposals need a broader/looser matching form |
+| Skill distribution beyond `npx skills@latest` (e.g. a Claude Code Plugin) | Skill only, invoked bare (`/loop-runtime`) | A consumer needs marketplace install/versioning and accepts the resulting `plugin:command` namespacing |
 
-First validation target: a real consumer project (Android-Compose-Skeleton), not toy examples.
+Validated so far: a real consumer project (Android-Compose-Skeleton, manual `.loop/` path) and, separately, the Skill-based install/operate/escalate/roll-up flow end-to-end in a scratch repository — not toy examples in either case.
